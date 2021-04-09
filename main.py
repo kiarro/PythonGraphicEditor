@@ -5,7 +5,8 @@ from tkinter import simpledialog, messagebox
 # from tkinter import commondialog
 import tkinter.ttk as ttk
 import PIL
-from PIL import Image, ImageTk, ImageColor
+from PIL import Image, ImageColor, ImageTk
+
 
 
 class DialogSize(tk.simpledialog.Dialog):
@@ -296,7 +297,7 @@ class Paint(tk.Frame):
         col = ImageColor.getcolor(btn["bg"], 'RGB')
         color = colorchooser.askcolor(initialcolor=col, parent=self)
         btn.configure(bg = color[1])
-        btn["command"] = lambda c=color[0]: self.set_color(c)
+        btn["command"] = lambda c=(int(color[0][0]), int(color[0][1]), int(color[0][2])): self.set_color(c)
 
     def scroll_y(self, *args, **kwargs):
         ''' Scroll canvas vertically and redraw the image '''
