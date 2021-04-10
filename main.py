@@ -1,13 +1,10 @@
-import collections
 import tkinter as tk
 from tkinter import filedialog, colorchooser
 from tkinter import simpledialog, messagebox
-# from tkinter import commondialog
 import tkinter.ttk as ttk
-import PIL
 from PIL import Image, ImageTk, ImageColor
 
-
+# simple dialog for input sizes of new image
 class DialogSize(tk.simpledialog.Dialog):
     def __init__(self, parent):
         self.w = None
@@ -46,6 +43,7 @@ class DialogSize(tk.simpledialog.Dialog):
         # print("cancel")
         self.destroy()
 
+# scrollbar that visibility depends on sizes of image and canvas
 class AutoScrollbar(ttk.Scrollbar):
     ''' A scrollbar that hides itself if it's not needed.
         Works only if you use the grid geometry manager '''
@@ -62,15 +60,22 @@ class AutoScrollbar(ttk.Scrollbar):
     def place(self, **kw):
         raise tk.TclError('Cannot use place with this widget')
 
+# class of main window
 class Paint(tk.Frame):
-    class PenForm:
+    # contains form of brush and borders of brush
+    # brush has form of round
+    class BrushForm:
         def __init__(self, diam):
             r, v = divmod(diam - 1, 2)
-
+            # form of brush
             form = list()
+            # new dots when move to right
             self.R = list()
+            # new dots when move to bottom
             self.B = list()
+            # intersection of sets R and B
             self.RB = list()
+            # new dots when move to right-bottom
             self.RBAll = list()
             # create round
             x = 0
@@ -79,7 +84,6 @@ class Paint(tk.Frame):
             # last move -1 - horiz, 0 - diag, 1 - vert
             l = 0
             while y >= 0:
-
                 if d < 0 and 2 * (d + y) - 1 < 0:
                     l = -1
                     x += 1
@@ -94,10 +98,6 @@ class Paint(tk.Frame):
                     self.RBAll.append((y, x))
                     self.RBAll.append((x, -y - v))
                     self.RBAll.append((-y - v, x))
-                    self.RBAll.append((-x-v, y))
-                    self.RBAll.append((y, -x-v))
-                    self.RBAll.append((-x-v, -y - v))
-                    self.RBAll.append((-y - v, -x-v))
                     # if prev move - diag or horiz
                     if l <= 0: self.RB.append((x, y))
                     for xx in range(-x - v, +x + 1):
@@ -120,14 +120,6 @@ class Paint(tk.Frame):
                 self.RBAll.append((y-1, x))
                 self.RBAll.append((x, -y+1 - v))
                 self.RBAll.append((-y+1 - v, x))
-                self.RBAll.append((-x-v, y))
-                self.RBAll.append((y, -x-v))
-                self.RBAll.append((-x-v, -y - v))
-                self.RBAll.append((-y - v, -x-v))
-                self.RBAll.append((-x-v, y-1))
-                self.RBAll.append((y-1, -x-v))
-                self.RBAll.append((-x-v, -y+1 - v))
-                self.RBAll.append((-y+1 - v, -x-v))
                 if (l <= 0): self.RB.append((x, y))
                 for xx in range(-x - v, +x + 1):
                     form.append((xx, +y))
@@ -136,37 +128,39 @@ class Paint(tk.Frame):
                 x += 1
                 y -= 1
                 d += 2 * (x - y) + 2
-            #
-            # self.RB = list()
-            # self.RB.append(self.R)
-            # self.RB.append(self.B)
+
             self.form = form
 
     def __init__(self, parent):
         tk.Frame.__init__(self, parent)
         self.parent = parent
 
+        # start sizes of image
         self.fig_width = 640
         self.fig_height = 480
 
-        # self.image = tk.PhotoImage(width=self.fig_width, height=self.fig_height)
-
+        # current image
         self.image = Image.new('RGB', (self.fig_width, self.fig_height), color=(255, 255, 255))
-        # self.image = Image.open('img.jpg').convert('RGB')
+        # copy of image (necessary for tools usage)
         self.imgcopy = self.image.copy()
+        # coordinates
         self.x = -1
         self.y = -1
 
         self.selection = None
         self.selection_move = False
         self.selection_resize = False
-        self.selection_resize_border = 3
+        self.selection_resize_border = 5
         self.selection_image = None
 
         self.brush_size = 10
         self.brush_color = (0,0,0)
-        self.brush = self.PenForm(self.brush_size)
+        self.brush = self.BrushForm(self.brush_size)
 
+        # functions that calling at (   every time for recalculate coordinates,
+        #                               on left mouse button down,
+        #                               on left mouse button move,
+        #                               on left mouse button up)
         self.modes = {"pen": (self.PointToImage, self.PrepareDraw, self.pen, self.null),
                       "line": (self.PointToImage, self.PrepareDraw, self.line, self.null),
                       "rect": (self.PointToImage, self.PrepareDraw, self.rect, self.null),
@@ -179,42 +173,43 @@ class Paint(tk.Frame):
 
 
         self.initUI()
-        # self.canvas.create_image((0, 0), image=ImageTk.PhotoImage(self.img2), anchor='nw')
+        # bind handling methods
         self.canvas.bind('<Configure>', self.show_image)  # canvas is resized
-        self.canvas.bind("<1>", self.LBdown)
-        self.canvas.bind("<B1-Motion>", self.LBmove)
-        self.canvas.bind("<ButtonRelease-1>", self.LBup)
-        self.canvas.bind('<MouseWheel>', self.wheel)  # with Windows and MacOS, but not Linux
+        self.canvas.bind("<1>", self.LBdown) # left mouse button down
+        self.canvas.bind("<B1-Motion>", self.LBmove) # left mouse button move
+        self.canvas.bind("<ButtonRelease-1>", self.LBup) # left mouse button up
+        self.canvas.bind('<MouseWheel>', self.wheel)  # wheel for Windows and MacOS, but not Linux
         self.canvas.bind('<Button-5>',   self.wheel)  # only with Linux, wheel scroll down
         self.canvas.bind('<Button-4>',   self.wheel)  # only with Linux, wheel scroll up
 
-        h = 21
-        r, _ = divmod(h - 1, 2)
-        xx0 = r + _
-        yy0 = r
-        for i in range(1, 22):
-            im = Image.new('RGB', (h, h), color=(255, 255, 255))
-            # im.putpixel((0,0), (255))
-            # im.putpixel((1,1), (255))
-            f = self.PenForm(i)
-            for x, y in f.form:
-                im.putpixel((xx0 + x, yy0 + y), (0, 0, 0))
-            for x, y in f.R:
-                im.putpixel((xx0 + x, yy0 + y), (255, 0, 0))
-            for x, y in f.B:
-                im.putpixel((xx0 + x, yy0 + y), (0, 255, 0))
-            for x, y in f.RB:
-                im.putpixel((xx0 + x, yy0 + y), (0, 0, 255))
-            for x, y in f.RBAll:
-                im.putpixel((xx0 + x, yy0 + y), (0, 255, 255))
 
-            im.save(f'brush_{i}.png')
+        # h = 21
+        # r, _ = divmod(h - 1, 2)
+        # xx0 = r + _
+        # yy0 = r
+        # for i in range(1, 22):
+        #     im = Image.new('RGB', (h, h), color=(255, 255, 255))
+        #     # im.putpixel((0,0), (255))
+        #     # im.putpixel((1,1), (255))
+        #     f = self.BrushForm(i)
+        #     for x, y in f.form:
+        #         im.putpixel((xx0 + x, yy0 + y), (0, 0, 0))
+        #     for x, y in f.R:
+        #         im.putpixel((xx0 + x, yy0 + y), (255, 0, 0))
+        #     for x, y in f.B:
+        #         im.putpixel((xx0 + x, yy0 + y), (0, 255, 0))
+        #     for x, y in f.RB:
+        #         im.putpixel((xx0 + x, yy0 + y), (0, 0, 255))
+        #     for x, y in f.RBAll:
+        #         im.putpixel((xx0 + x, yy0 + y), (0, 255, 255))
+        #
+        #     im.save(f'brush_{i}.png')
 
         print("done")
 
     def initUI(self):
 
-        self.parent.title("My Paint")
+        self.parent.title("Mansurov Paint")
         self.pack(fill=tk.BOTH, expand=1)
 
         self.columnconfigure(0, weight=1)
@@ -287,9 +282,14 @@ class Paint(tk.Frame):
 
 
     def set_mode(self, m):
+        if self.selection:
+            self.image = self.imgcopy.copy()
+            self.image.paste(self.selection_image,
+                             box=(self.selection[0], self.selection[1], self.selection[2], self.selection[3]))
+            self.imgcopy = self.image.copy()
+            self.selection = None
+            self.show_image()
         self.mode = self.modes[m]
-        # self.image = self.imgcopy.copy()
-        # self.show_image()
         print(m)
 
     def ChangeColorTile(self, btn):
@@ -369,11 +369,11 @@ class Paint(tk.Frame):
             # self.image.put(self.brush_color, (x, y))
             self.image.putpixel((x, y), self.brush_color)
 
-    def pen(self, cx, cy):
+    def pen(self, cx, cy, *args):
         self.draw_line(self.x, self.y, cx, cy)
         self.x, self.y = cx, cy
 
-    def fill(self, cx, cy):
+    def fill(self, cx, cy, *args):
         source = self.image.getpixel((cx, cy))
         color = self.brush_color
         toFill = set()
@@ -384,48 +384,40 @@ class Paint(tk.Frame):
             if not c == source:
                 continue
             self.image.putpixel((x,y), color)
-            toFill.add((x-1,y))
-            toFill.add((x+1,y))
-            toFill.add((x,y-1))
-            toFill.add((x,y+1))
-        # if source != color:
-        #     pixels = collections.deque([(cx, cy)])
-        #     while pixels:
-        #         place = pixels.popleft()
-        #         x, y = place
-        #         self.image.putpixel(place, color)
-        #         for x_offset in -1, 1:
-        #             x_offset += x
-        #             for y_offset in -1, 1:
-        #                 y_offset += y
-        #                 new_place = x_offset, y_offset
-        #                 if self.image.getpixel(new_place) == source:
-        #                     pixels.append(new_place)
+            if x-1>=0: toFill.add((x-1,y))
+            if x+1<self.width: toFill.add((x+1,y))
+            if y-1>=0: toFill.add((x,y-1))
+            if y+1<self.height: toFill.add((x,y+1))
 
-    def line(self, cx, cy):
+    def line(self, cx, cy, *args):
         self.image = self.imgcopy.copy()
         self.show_image()
-        # self.canvas.create_image((0, 0), image=self.image, anchor='nw')
         self.draw_line(self.x, self.y, cx, cy)
 
-    def rect(self, cx, cy):
+    def rect(self, cx, cy, e):
         self.image = self.imgcopy.copy()
         self.show_image()
-        # self.canvas.create_image((0, 0), image=self.image, anchor='nw')
+        if (e.state & 0x1): # if shift pressed
+            h = min(abs(cx-self.x), abs(cy-self.y))
+            cx = self.x + (h if cx>self.x else -h)
+            cy = self.y + (h if cy>self.y else -h)
         self.draw_rectangle(self.x, self.y, cx, cy)
 
-    def round(self, cx, cy):
+    def round(self, cx, cy, e):
         self.image = self.imgcopy.copy()
         self.show_image()
-        # self.canvas.create_image((0, 0), image=self.image, anchor='nw')
+        if (e.state & 0x1): # if shift pressed
+            h = min(abs(cx-self.x), abs(cy-self.y))
+            cx = self.x + (h if cx>self.x else -h)
+            cy = self.y + (h if cy>self.y else -h)
         self.draw_ellipse(self.x, self.y, cx, cy)
-        # self.draw_round(self.x, self.y, cx, cy)
 
-    def move(self, cx, cy):
+
+    def move(self, cx, cy, *args):
         self.canvas.scan_dragto(cx, cy, gain=1)
         self.show_image()  # redraw the image
 
-    def select_start(self, cx, cy):
+    def select_start(self, cx, cy, *args):
         # if not selected yet => prepare for drawing
         if self.selection == None:
 
@@ -498,7 +490,7 @@ class Paint(tk.Frame):
             self.x, self.y = cx, cy
             self.image = self.imgcopy.copy()
 
-    def select(self, cx, cy):
+    def select(self, cx, cy, *args):
         if self.selection == None:
             if self.x<0 or self.y<0 or self.x>=self.width or self.y>=self.height:
                 return
@@ -557,7 +549,7 @@ class Paint(tk.Frame):
                     self.image.paste(img,
                                      box=(self.selection[2]-w+cx-self.x, self.selection[1], self.selection[2], self.selection[3]+cy-self.y))
 
-    def select_end(self, cx, cy):
+    def select_end(self, cx, cy, *args):
         if (self.selection_move):
             # self.imgcopy = self.image.copy()
             self.selection = (cx-self.x, cy-self.y, cx-self.x+self.selection[2]-self.selection[0], cy-self.y+self.selection[3]-self.selection[1])
@@ -642,26 +634,15 @@ class Paint(tk.Frame):
         self.LBmove(e)
 
     def LBmove(self, e):
-        # self.canvas.create_line((self.x, self.y, e.x, e.y), width=self.brush_size)
-        # self.canvas.create_oval(e.x - self.brush_size/2,
-        #                       e.y - self.brush_size/2,
-        #                       e.x + self.brush_size/2,
-        #                       e.y + self.brush_size/2,
-        #                       fill=self.brush_color, outline=self.brush_color)
-        # self.image.put(self.brush_color, (e.x, e.y))
         x, y = e.x, e.y
         cx, cy = self.mode[0](x,y)
-        self.mode[2](cx, cy)
+        self.mode[2](cx, cy, e)
         self.show_image()
-        # self.canvas.scale('all', 0, 100, 5, 5)
 
     def LBup(self, e):
         cx, cy = self.mode[0](e.x, e.y)
         self.mode[3](cx, cy)
         self.show_image()
-    #
-    # def Ent(self, e):
-    #     self.x, self.y = e.x, e.y
 
     def draw_line(self, x0, y0, x1, y1):
         dx = abs(x1 - x0)
@@ -734,55 +715,23 @@ class Paint(tk.Frame):
             for yy in range(-h1, h2):
                 self.putpixel(x, y0+yy)
                 self.putpixel(x, y1+yy)
-        for y in range(y0-h1, y1+h2):
+        for y in range(y0+h1, y1-h2+1):
             for xx in range(-h1, h2):
                 self.putpixel(x0+xx, y)
                 self.putpixel(x1+xx, y)
 
-    def draw_round(self, x0, y0, x1, y1):
-        diam = min(abs(x1 - x0), abs(y1 - y0))
-        r, _ = divmod(diam - 1, 2)
-        # xc = (x0 if x1>x0 else x0-diam) + r+_
-        # yc = (y0 if y1>y0 else y0-diam) + r
-        xc = x0 + (r + _ if x1 > x0 else -r)
-        yc = y0 + (r if y1 > y0 else -r - _)
-        xcm = xc - _
-        ycm = yc - _
-
-        # r1, r2 = divmod(diam-1, 2)
-        # r1, r2 = r1, r1+r2
-        x = 0
-        y = r
-        d = 1 - 2 * r
-        while y > int(r / 2):
-            self.putpixel(xc + x, yc + y)
-            self.putpixel(xc + x, ycm - y)
-            self.putpixel(xcm - x, yc + y)
-            self.putpixel(xcm - x, ycm - y)
-            self.putpixel(xc + y, yc + x)
-            self.putpixel(xc + y, ycm - x)
-            self.putpixel(xcm - y, yc + x)
-            self.putpixel(xcm - y, ycm - x)
-            e = 2 * (d + y) - 1
-            if d < 0 and e <= 0:
-                x += 1
-                d += 2 * x + 1
-                continue
-            if d > 0 and e > 0:
-                y -= 1
-                d -= (2 * y + 1)
-                continue
-            x += 1
-            y -= 1
-            d += 2 * (x - y)
-
     def draw_ellipse(self, x0, y0, x1, y1):
-        xc = int((x1 + x0) / 2)
-        yc = int((y1 + y0) / 2)
+        diamx = abs(x1 - x0)
+        diamy = abs(y1 - y0)
         # rx
-        a = abs(x0 - xc)
+        a, _a = divmod(diamx - 1, 2)
         # ry
-        b = abs(y0 - yc)
+        b, _b = divmod(diamy - 1, 2)
+
+        xc = x0 + (a + _a if x1 > x0 else -a)
+        yc = y0 + (b + _b if y1 > y0 else -b)
+        xcm = xc - _a
+        ycm = yc - _b
         a2 = a * a
         b2 = b * b
         x = 0
@@ -792,67 +741,38 @@ class Paint(tk.Frame):
 
         # draw start point
         for xx, yy in self.brush.form:
-            self.putpixel(xc + xx, yc+b + yy)
-            self.putpixel(xc + xx, yc-b - yy)
-            self.putpixel(xc+a - xx, yc + yy)
-            self.putpixel(xc-a - xx, yc - yy)
+            self.putpixel(xc + xx, yc+b - yy)
+            self.putpixel(xc + xx, ycm-b + yy)
+            self.putpixel(xc+a - xx, yc - yy)
+            self.putpixel(xcm-a - xx, yc + yy)
+            self.putpixel(xc+a - xx, ycm - yy)
+            self.putpixel(xcm-a - xx, ycm + yy)
 
         while y >= 0:
             if y == 0:
                 for xf in range(x, a + 1):
                     for xx, yy in self.brush.R:
                         self.putpixel(xc+xf + xx, yc + yy)
-                        self.putpixel(xc-xf - xx, yc + yy)
-                    # self.putpixel(xc + xf, yc)
-                    # self.putpixel(xc - xf, yc)
+                        self.putpixel(xcm-xf - xx, yc + yy)
                 y -= 1
             else:
-                # self.putpixel(xc + x, yc + y)
-                # self.putpixel(xc + x, yc - y)
-                # self.putpixel(xc - x, yc + y)
-                # self.putpixel(xc - x, yc - y)
                 for xx, yy in self.brush.RBAll:
-                    self.putpixel(xc+x + xx, yc+y + yy)
-                    self.putpixel(xc-x - xx, yc+y + yy)
-                    self.putpixel(xc+x + xx, yc-y - yy)
-                    self.putpixel(xc-x - xx, yc-y - yy)
-                # for xx, yy in self.brush.form:
-                #     self.putpixel(xc+x + xx, yc+y + yy)
-                #     self.putpixel(xc+x + xx, yc-y - yy)
-                #     self.putpixel(xc-x - xx, yc+y + yy)
-                #     self.putpixel(xc-x - xx, yc-y - yy)
+                    self.putpixel(xc+x + xx, yc+y - yy)
+                    self.putpixel(xcm-x - xx, yc+y - yy)
+                    self.putpixel(xc+x + xx, ycm-y + yy)
+                    self.putpixel(xcm-x - xx, ycm-y + yy)
                 # horizontal or diag
                 if d < 0:
                     e = 2 * d + 2 * y * a2 - a2
                     # horizontal
-                    if e < 0:
+                    if e <= 0:
                         x += 1
                         d += 2 * x * b2 + b2
-                        # for xx, yy in self.brush.R:
-                        #     self.putpixel(xc+x + xx, yc+y + yy)
-                        #     self.putpixel(xc-x - xx, yc+y + yy)
-                        #     self.putpixel(xc+x + xx, yc-y - yy)
-                        #     self.putpixel(xc-x - xx, yc-y - yy)
-                        # for xx, yy in self.brush.B:
-                        #     self.putpixel(xc+x + xx, yc+y + yy)
-                        #     self.putpixel(xc-x - xx, yc+y + yy)
-                        #     self.putpixel(xc+x + xx, yc-y - yy)
-                        #     self.putpixel(xc-x - xx, yc-y - yy)
                     # diag
                     else:
                         x += 1
                         y -= 1
                         d += (2 * x * b2 + b2 - 2 * y * a2 + a2)
-                        # for xx, yy in self.brush.R:
-                        #     self.putpixel(xc+x + xx, yc+y + yy)
-                        #     self.putpixel(xc-x - xx, yc+y + yy)
-                        #     self.putpixel(xc+x + xx, yc-y - yy)
-                        #     self.putpixel(xc-x - xx, yc-y - yy)
-                        # for xx, yy in self.brush.B:
-                        #     self.putpixel(xc+x + xx, yc+y + yy)
-                        #     self.putpixel(xc-x - xx, yc+y + yy)
-                        #     self.putpixel(xc+x + xx, yc-y - yy)
-                        #     self.putpixel(xc-x - xx, yc-y - yy)
                 # vertical or diag
                 else:
                     e = 2 * d - 2 * x * b2 - b2
@@ -860,35 +780,15 @@ class Paint(tk.Frame):
                     if e > 0:
                         y -= 1
                         d += (-2 * y * a2 + a2)
-                        # for xx, yy in self.brush.R:
-                        #     self.putpixel(xc+x + xx, yc+y + yy)
-                        #     self.putpixel(xc-x - xx, yc+y + yy)
-                        #     self.putpixel(xc+x + xx, yc-y - yy)
-                        #     self.putpixel(xc-x - xx, yc-y - yy)
-                        # for xx, yy in self.brush.B:
-                        #     self.putpixel(xc+x + xx, yc+y + yy)
-                        #     self.putpixel(xc-x - xx, yc+y + yy)
-                        #     self.putpixel(xc+x + xx, yc-y - yy)
-                        #     self.putpixel(xc-x - xx, yc-y - yy)
                     # diag
                     else:
                         x += 1
                         y -= 1
                         d += (2 * x * b2 + b2 - 2 * y * a2 + a2)
-                        # for xx, yy in self.brush.R:
-                        #     self.putpixel(xc+x + xx, yc+y + yy)
-                        #     self.putpixel(xc-x - xx, yc+y + yy)
-                        #     self.putpixel(xc+x + xx, yc-y - yy)
-                        #     self.putpixel(xc-x - xx, yc-y - yy)
-                        # for xx, yy in self.brush.B:
-                        #     self.putpixel(xc+x + xx, yc+y + yy)
-                        #     self.putpixel(xc-x - xx, yc+y + yy)
-                        #     self.putpixel(xc+x + xx, yc-y - yy)
-                        #     self.putpixel(xc-x - xx, yc-y - yy)
 
     def set_size(self, val):
         self.brush_size = int(val)
-        self.brush = self.PenForm(int(val))
+        self.brush = self.BrushForm(int(val))
 
     def new_image(self):
         d = DialogSize(self)
