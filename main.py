@@ -650,14 +650,11 @@ class Paint(tk.Frame):
         dirx = 1 if x1 - x0 > 0 else -1
         diry = 1 if y1 - y0 > 0 else -1
         brush = self.brush
-        # w1, w2 = divmod(self.brush_size, 2)
-        # w1, w2 = w1, w1+w2
         e = 0
 
         # draw start point
-        for x, y in self.brush.form:
+        for x, y in brush.form:
             self.putpixel(x0 + x * dirx, y0 + y * diry)
-
 
         if dx > dy:
             de = dy + 1
@@ -665,8 +662,6 @@ class Paint(tk.Frame):
             for x in range(x0, x1 + dirx, dirx):
                 for xx, yy in brush.R:
                     self.putpixel(x + xx * dirx, y + yy * diry)
-                # for yy in range(y-w1, y+w2):
-                #     self.putpixel(x, yy)
                 e += de
                 if e > dx + 1:
                     y += diry
@@ -680,19 +675,12 @@ class Paint(tk.Frame):
             for y in range(y0, y1 + diry, diry):
                 for xx, yy in brush.B:
                     self.putpixel(x + xx * dirx, y + yy * diry)
-                # for xx in range(x-w1, x+w2):
-                #     self.putpixel(xx, y)
                 e += de
                 if e > dy + 1:
                     x += dirx
                     for xx, yy in brush.R:
                         self.putpixel(x + xx * dirx, y + yy * diry)
                     e -= (dy + 1)
-
-
-        #
-        # for x, y in self.brush.form:
-        #     self.image.put(self.brush_color, (x1+x, y1+y))
 
     def draw_select(self, x0, y0, x1, y1):
         color = ((0,0,0), (255,255,255))
@@ -815,7 +803,13 @@ class Paint(tk.Frame):
             self.image.save(path)
 
     def about(self):
-        messagebox.showinfo('About', 'Это сделал Мансуров Юрий.', parent=self)
+        about_info = '''
+        Paint-like graphic editor.
+        Made with Python 3.8.
+        
+        Made by Kiarro.
+        '''
+        messagebox.showinfo('About', about_info, parent=self)
 
     def save_img(self):
         self.imgcopy = self.image.copy()
